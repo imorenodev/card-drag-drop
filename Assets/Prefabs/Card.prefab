@@ -90,7 +90,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   parentToReturnTo: {fileID: 0}
-  smooth: 100
+  placeholderParent: {fileID: 0}
 --- !u!225 &-8567197633731466023
 CanvasGroup:
   m_ObjectHideFlags: 0

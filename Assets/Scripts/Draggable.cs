@@ -1,47 +1,21 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.Playables;
 using UnityEngine.UI;
 
-public class Draggable : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHandler
+public class Draggable : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
-    Vector2 mousePosition;
-    Vector2 difference;
-    public Transform parentToReturnTo; // Store the initial position for resetting
-    public float smooth = 100f; // You can adjust the smoothness
+    public Transform parentToReturnTo = null;
+    public Transform placeholderParent = null;
 
-    private GameObject placeholder = null;
-    
-
-    void Start()
-    {
-        // No need to set smooth here, as it's better to define it directly
-        parentToReturnTo = this.transform.parent; // Store the initial position
-    }
+    GameObject placeholder = null;
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        Debug.Log("OnBeginDrag");
-
-        CreatePlaceholder(this.transform);
-
-        mousePosition = eventData.position;
-        difference = (Vector2)transform.position - mousePosition;
-
-        this.transform.SetParent(this.parentToReturnTo.parent);
-        GetComponent<CanvasGroup>().blocksRaycasts = false;
-    }
-
-    private void CreatePlaceholder(Transform cardTransform)
-    {
         placeholder = new GameObject();
-        placeholder.transform.SetParent(cardTransform.parent);
- 
+        placeholder.transform.SetParent(this.transform.parent);
+
         RectTransform placeholderRectTransform = placeholder.AddComponent<RectTransform>();
-        RectTransform cardRectTransform = cardTransform.GetComponent<RectTransform>();
+        RectTransform cardRectTransform = this.transform.GetComponent<RectTransform>();
 
         placeholderRectTransform.localPosition = cardRectTransform.localPosition;
         placeholderRectTransform.localScale = cardRectTransform.localScale;
@@ -51,24 +25,71 @@ public class Draggable : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDra
         placeholderRectTransform.anchoredPosition = cardRectTransform.anchoredPosition;
         placeholderRectTransform.pivot = cardRectTransform.pivot;
 
-        placeholder.transform.SetSiblingIndex(cardTransform.GetSiblingIndex());
+        placeholder.transform.SetSiblingIndex(this.transform.GetSiblingIndex());
+
+        parentToReturnTo = this.transform.parent;
+        placeholderParent = parentToReturnTo;
+        this.transform.SetParent(this.transform.parent.parent);
+
+        GetComponent<CanvasGroup>().blocksRaycasts = false;
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        Vector2 newPosition = eventData.position + difference;
-        this.transform.position = Vector2.Lerp(transform.position, newPosition, smooth * Time.deltaTime);
+        // Update the position of the card to follow the mouse cursor.
+        this.transform.position = eventData.position;
+
+        // If the placeholder object is null, exit the function.
+        if (placeholder == null)
+        {
+            return;
+        }
+
+        // Check if the placeholderParent is not null.
+        if (placeholderParent != null)
+        {
+            // If the placeholder's parent is not the same as the placeholderParent, update it.
+            if (placeholder.transform.parent != placeholderParent)
+            {
+                placeholder.transform.SetParent(placeholderParent);
+            }
+
+            // Start with the assumption that the new position for the placeholder is at the end.
+            int newSiblingIndex = placeholderParent.childCount;
+
+            // Loop through all children of the placeholderParent.
+            for (int i = 0; i < placeholderParent.childCount; i++)
+            {
+                // Check if the card's position is less than the current child's position.
+                if (this.transform.position.x < placeholderParent.GetChild(i).position.x)
+                {
+                    // Update the newSiblingIndex to the current index.
+                    newSiblingIndex = i;
+
+                    // If the placeholder is already in a lower position, adjust the index to insert before the current child.
+                    if (placeholder.transform.GetSiblingIndex() < newSiblingIndex)
+                    {
+                        newSiblingIndex--;
+                    }
+
+                    // Break the loop as we found the new position for the placeholder.
+                    break;
+                }
+            }
+
+            // Set the sibling index of the placeholder to the new calculated position.
+            placeholder.transform.SetSiblingIndex(newSiblingIndex);
+        }
     }
+
+
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        Debug.Log("OnEndDrag");
-        // If you want to reset the position when the drag ends, you can do it like this:
-        // transform.position = initialPosition;
-        this.transform.SetParent(this.parentToReturnTo);
-        GetComponent<CanvasGroup>().blocksRaycasts = true;
+        this.transform.SetParent(parentToReturnTo);
         this.transform.SetSiblingIndex(placeholder.transform.GetSiblingIndex());
-        
+        GetComponent<CanvasGroup>().blocksRaycasts = true;
+
         Destroy(placeholder);
     }
 }
